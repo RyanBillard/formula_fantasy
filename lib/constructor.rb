@@ -1,0 +1,1 @@
+Constructor = Struct.new(:name, :cost, :points)

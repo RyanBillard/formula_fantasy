@@ -1,44 +1,27 @@
 require 'pry'
 require 'bigdecimal'
 require 'bigdecimal/util'
+require 'optparse'
+require_relative 'lib/team_generator'
+require_relative 'lib/file_loader'
+require_relative 'lib/team_ranking'
+require_relative 'lib/parser'
 
-Driver = Struct.new(:name, :cost, :points)
-Constructor = Struct.new(:name, :cost, :points)
-Team = Struct.new(:drivers, :constructor, :points, :cost)
+drivers, constructors = FileLoader.call
+options = Parser.parse(ARGV, drivers, constructors)
+max_budget = options.max_budget || 100
+include_mega = options.mega_driver ? true : false
+generator = TeamGenerator.new(drivers, constructors, max_budget, include_mega)
+ranking = TeamRanking.new(generator.viable_teams)
 
-def load_drivers
-    driver_file = "drivers.txt"
-    IO.read(driver_file).split("\n").map do |driver_line|
-        name, cost, points = driver_line.split(",")
-        Driver.new(name, cost.to_d, points.to_d)
-    end
+puts "Best 10 teams"
+ranking.best(10).each do |team|
+  puts team
 end
 
-def load_constructors
-    constructor_file = "constructors.txt"
-    IO.read(constructor_file).split("\n").map do |constructor_line|
-        name, cost, points = constructor_line.split(",")
-        Constructor.new(name, cost.to_d, points.to_d)
-    end
+if options.my_drivers && options.my_constructor
+  my_team = Team.new(options.my_drivers, options.my_constructor, options.turbo_driver, options.mega_driver)
+  puts "My team: #{my_team}"
+  puts "My team's ranking: #{ranking.rank(my_team)}/#{ranking.teams.size}"
 end
-
-max_budget = 100
-drivers = load_drivers
-constructors = load_constructors
-cheapest_driver = drivers.min_by { |driver| driver.cost }
-
-driver_combos = drivers.combination(5).select do |driver_combo|
-    driver_combo.sum(&:cost) <= (max_budget - cheapest_driver.cost)
-end
-
-viable_teams = driver_combos.product(constructors).select do |team|
-    team.flatten.sum(&:cost) <= max_budget
-end.map do |team|
-    Team.new(team.first, team.last, team.flatten.sum(&:points), team.flatten.sum(&:cost))
-end
-
-viable_teams.sort_by(&:points).reverse.first(10).each do |team|
-    puts "Constructor: #{team.constructor.name} Drivers: #{team.drivers.map(&:name).join(", ")} Pts: #{team.points.to_s("F")} Budget: $#{team.cost.to_s("F")}M"
-end
-
 

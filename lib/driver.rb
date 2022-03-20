@@ -1,0 +1,1 @@
+Driver = Struct.new(:name, :cost, :points)
